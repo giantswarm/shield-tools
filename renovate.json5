@@ -1,0 +1,27 @@
+{
+  "extends": [
+    "github>giantswarm/renovate-presets:default.json5",
+    "github>giantswarm/renovate-presets:lang-go.json5",
+    "github>giantswarm/renovate-presets:disable-vendir.json5"
+  ],
+  "packageRules": [
+    {
+      "description": "Automerge architect updates",
+      "matchFileNames": [
+        ".circleci/config.yml"
+      ],
+      "matchDepNames": [
+        "architect"
+      ],
+      "groupName": "Architect",
+      "automerge": true
+    },
+    {
+      "description": "Group all updates to generated workflow files into one PR",
+      "matchFileNames": [
+        ".github/workflows/zz_generated.**"
+      ],
+      "groupName": "Generated workflows"
+    }
+  ]
+}
