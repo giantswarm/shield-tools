@@ -1,0 +1,16 @@
+module github.com/giantswarm/shield-tools/tools/schema-gen
+
+go 1.24
+
+require (
+	github.com/losisin/helm-values-schema-json v1.9.2
+	github.com/spf13/cobra v1.9.1
+	sigs.k8s.io/yaml v1.4.0
+)
+
+require (
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
