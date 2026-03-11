@@ -1,6 +1,6 @@
 module github.com/giantswarm/shield-tools/tools/schema-gen
 
-go 1.24
+go 1.24.2
 
 require (
 	github.com/losisin/helm-values-schema-json v1.9.2
