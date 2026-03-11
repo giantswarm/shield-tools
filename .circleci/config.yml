@@ -12,6 +12,9 @@ workflows:
         image: giantswarm/shield-changelogger
         dockerfile: ./tools/changelogger/Dockerfile
         build-context: ./tools/changelogger
+        registries-data: |
+          private gsociprivate.azurecr.io ACR_GSOCIPRIVATE_USERNAME ACR_GSOCIPRIVATE_PASSWORD true
+          public gsoci.azurecr.io ACR_GSOCI_USERNAME ACR_GSOCI_PASSWORD true
         filters:
           tags:
             only: /^v.*/
