@@ -10,6 +10,7 @@ workflows:
         context: architect
         name: push-to-registries-changelogger
         dockerfile: ./tools/changelogger/Dockerfile
+        build-context: ./tools/changelogger
         filters:
           tags:
             only: /^v.*/
@@ -22,6 +23,7 @@ workflows:
         context: architect
         name: push-to-registries-values-sync
         dockerfile: ./tools/values-sync/Dockerfile
+        build-context: ./tools/values-sync
         filters:
           tags:
             only: /^v.*/
@@ -34,6 +36,7 @@ workflows:
         context: architect
         name: push-to-registries-schema-gen
         dockerfile: ./tools/schema-gen/Dockerfile
+        build-context: ./tools/schema-gen
         filters:
           tags:
             only: /^v.*/
