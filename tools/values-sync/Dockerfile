@@ -6,6 +6,6 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /bin/values-sync .
 
-FROM alpine:3
+FROM gcr.io/distroless/static
 COPY --from=builder /bin/values-sync /usr/local/bin/values-sync
 ENTRYPOINT ["values-sync"]

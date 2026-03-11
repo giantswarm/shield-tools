@@ -9,6 +9,7 @@ workflows:
     - architect/push-to-registries:
         context: architect
         name: push-to-registries-changelogger
+        image: giantswarm/shield-changelogger
         dockerfile: ./tools/changelogger/Dockerfile
         build-context: ./tools/changelogger
         filters:
@@ -22,6 +23,7 @@ workflows:
     - architect/push-to-registries:
         context: architect
         name: push-to-registries-values-sync
+        image: giantswarm/shield-values-sync
         dockerfile: ./tools/values-sync/Dockerfile
         build-context: ./tools/values-sync
         filters:
@@ -35,6 +37,7 @@ workflows:
     - architect/push-to-registries:
         context: architect
         name: push-to-registries-schema-gen
+        image: giantswarm/shield-schema-gen
         dockerfile: ./tools/schema-gen/Dockerfile
         build-context: ./tools/schema-gen
         filters:

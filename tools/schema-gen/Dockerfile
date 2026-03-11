@@ -6,6 +6,6 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /bin/schema-gen .
 
-FROM alpine:3
+FROM gcr.io/distroless/static
 COPY --from=builder /bin/schema-gen /usr/local/bin/schema-gen
 ENTRYPOINT ["schema-gen"]
