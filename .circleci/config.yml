@@ -4,23 +4,14 @@ orbs:
   architect: giantswarm/architect@6.14.1
 
 workflows:
-  test:
+  build-tools:
     jobs:
-    - architect/go-build:
-        name: go-build-changelogger
-        binary: changelogger
-        path: ./tools/changelogger
-        resource_class: large
-        filters:
-          tags:
-            only: /^v.*/
-
     - architect/push-to-registries:
         context: architect
         name: push-to-registries-changelogger
+        image: giantswarm/shield-changelogger
         dockerfile: ./tools/changelogger/Dockerfile
-        requires:
-        - go-build-changelogger
+        build-context: ./tools/changelogger
         filters:
           tags:
             only: /^v.*/
@@ -28,22 +19,13 @@ workflows:
             ignore:
             - main
             - master
-
-    - architect/go-build:
-        name: go-build-values-sync
-        binary: values-sync
-        path: ./tools/values-sync
-        resource_class: large
-        filters:
-          tags:
-            only: /^v.*/
 
     - architect/push-to-registries:
         context: architect
         name: push-to-registries-values-sync
+        image: giantswarm/shield-values-sync
         dockerfile: ./tools/values-sync/Dockerfile
-        requires:
-        - go-build-values-sync
+        build-context: ./tools/values-sync
         filters:
           tags:
             only: /^v.*/
@@ -52,21 +34,12 @@ workflows:
             - main
             - master
 
-    - architect/go-build:
-        name: go-build-schema-gen
-        binary: schema-gen
-        path: ./tools/schema-gen
-        resource_class: large
-        filters:
-          tags:
-            only: /^v.*/
-
     - architect/push-to-registries:
         context: architect
         name: push-to-registries-schema-gen
+        image: giantswarm/shield-schema-gen
         dockerfile: ./tools/schema-gen/Dockerfile
-        requires:
-        - go-build-schema-gen
+        build-context: ./tools/schema-gen
         filters:
           tags:
             only: /^v.*/
