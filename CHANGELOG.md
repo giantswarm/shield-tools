@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix output file ownership when running inside a Docker container as root with a bind-mounted workspace.
+
 ## [0.0.2] - 2026-03-12
 
 ### Changed
