@@ -193,7 +193,7 @@ func parseMarkdown(markdown []string) Changelog {
 				if len(header) > 1 {
 					currentlyPopulating = strings.Join(header[1:], " ")
 				}
-			} else if len(header) > 1 && strings.Contains(header[1], "https://") {
+			} else if len(header) > 1 && strings.Contains(header[1], "https://") && strings.HasPrefix(header[0], "[") {
 				populateVersion = false
 				newChangelog.Refs = append(newChangelog.Refs, line)
 			} else {
