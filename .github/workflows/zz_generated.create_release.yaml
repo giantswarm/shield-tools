@@ -22,7 +22,7 @@ jobs:
   create-release:
     uses: giantswarm/github-workflows/.github/workflows/create-release.yaml@main
     with:
-      build-release-artifacts: true
+      build-release-artifacts: false
       fetch-deep-gitlog-for-build: true
     secrets:
       TAYLORBOT_GITHUB_ACTION: ${{ secrets.TAYLORBOT_GITHUB_ACTION }}
