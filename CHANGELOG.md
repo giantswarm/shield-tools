@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Fixed issue where bullet points are sent from notes to the end of the file.
+- Build Docker images for multiple architectures (amd64 and arm64).
 
 ## [0.0.1] - 2026-03-11
 
