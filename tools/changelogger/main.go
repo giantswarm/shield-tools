@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -150,24 +149,7 @@ func writeChangelogFile(newChangelog Changelog, path string) error {
 
 	newFile := strings.Join(lines, "\n")
 
-	// Atomic write: write to a temp file in the same directory, then rename
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".changelog-*.tmp")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-	defer os.Remove(tmpName) // no-op if rename succeeded
-
-	if _, err = tmp.WriteString(newFile); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err = tmp.Close(); err != nil {
-		return err
-	}
-
-	return os.Rename(tmpName, path)
+	return os.WriteFile(path, []byte(newFile), 0o644)
 }
 
 func parseMarkdown(markdown []string) Changelog {
