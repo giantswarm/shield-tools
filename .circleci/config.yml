@@ -6,7 +6,7 @@ orbs:
 workflows:
   build-tools:
     jobs:
-    - architect/push-to-registries:
+    - architect/push-to-registries-multiarch:
         context: architect
         name: push-to-registries-changelogger
         image: giantswarm/shield-changelogger
@@ -20,7 +20,7 @@ workflows:
             - main
             - master
 
-    - architect/push-to-registries:
+    - architect/push-to-registries-multiarch:
         context: architect
         name: push-to-registries-values-sync
         image: giantswarm/shield-values-sync
@@ -34,7 +34,7 @@ workflows:
             - main
             - master
 
-    - architect/push-to-registries:
+    - architect/push-to-registries-multiarch:
         context: architect
         name: push-to-registries-schema-gen
         image: giantswarm/shield-schema-gen
