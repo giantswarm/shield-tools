@@ -12,6 +12,7 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/losisin/helm-values-schema-json v1.9.2 h1:VwMknOzuHV1Jd70B3ODnr5TRsLWVabAPxsQYK+mbq+8=
 github.com/losisin/helm-values-schema-json v1.9.2/go.mod h1:x5oQOSCHjLyugt4SXd2dqr0iylRwhHEH2gZXfejwmqA=
+github.com/losisin/helm-values-schema-json/v2 v2.3.1/go.mod h1:uuEUxFkxBifM+LeFlWG8BFxAJYozgspSDMlilM2BsSg=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
