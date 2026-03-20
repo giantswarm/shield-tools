@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added new `show-git-diff` flag to only display values added in the current PR.
+
+### Fixed
+
+- Fixed an issue where values were mistakenly deleted.
+
 ## [0.0.3] - 2026-03-12
 
 ### Fixed
