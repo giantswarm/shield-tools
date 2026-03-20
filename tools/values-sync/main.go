@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/giantswarm/shield-tools/tools/values-sync/internal/chart"
 	"github.com/giantswarm/shield-tools/tools/values-sync/internal/config"
@@ -19,7 +20,8 @@ type options struct {
 	chartDir   string
 	configPath string
 	dryRun     bool
-	addNew     bool
+	addMissing bool
+	showDiff   bool
 	output     string
 	depth      int
 	format     string
@@ -35,6 +37,17 @@ type syncResult struct {
 	Subchart string   `json:"subchart"`
 	Removed  []string `json:"removed"`
 	New      []string `json:"new"`
+}
+
+// diffReport is the JSON-serialisable report for --show-diff.
+type diffReport struct {
+	ChartDir string       `json:"chartDir"`
+	Results  []diffResult `json:"results"`
+}
+
+type diffResult struct {
+	Subchart  string   `json:"subchart"`
+	NewInDiff []string `json:"newInDiff"`
 }
 
 func main() {
@@ -58,7 +71,8 @@ func run() error {
 	cmd.Flags().StringVar(&opts.chartDir, "chart-dir", "", "Path to the parent Helm chart directory (defaults to first helm/*/ match)")
 	cmd.Flags().StringVar(&opts.configPath, "config", "", "Path to values-sync.yaml config (auto-detected if not set)")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "Print what would change without modifying files")
-	cmd.Flags().BoolVar(&opts.addNew, "add-new", false, "Auto-add new upstream keys to values.yaml with upstream default value")
+	cmd.Flags().BoolVar(&opts.addMissing, "add-missing", false, "Auto-add missing upstream keys to values.yaml with upstream default value")
+	cmd.Flags().BoolVar(&opts.showDiff, "show-git-diff", false, "Show keys newly introduced upstream in this branch that are missing from our values.yaml")
 	cmd.Flags().StringVar(&opts.output, "output", "text", "Output format: text or json")
 	cmd.Flags().IntVar(&opts.depth, "depth", 0, "Max depth for tree output (0 = unlimited)")
 	cmd.Flags().StringVar(&opts.format, "format", "tree", "Output format for changed keys: tree or paths")
@@ -107,6 +121,12 @@ func execute(opts *options) error {
 		return err
 	}
 
+	// --show-diff: list keys newly introduced upstream (git diff vs HEAD) that
+	// are missing from our values.yaml, then exit without modifying anything.
+	if opts.showDiff {
+		return executeShowDiff(chartDir, deps, cfg.Exclude, doc, opts)
+	}
+
 	// Sync each subchart.
 	rep := report{ChartDir: chartDir}
 	var syncResults []values.SyncResult
@@ -119,7 +139,7 @@ func execute(opts *options) error {
 
 		res, err := values.SyncSubchart(doc, dep, upstreamPath, values.SyncOptions{
 			DryRun:  opts.dryRun,
-			AddNew:  opts.addNew,
+			AddNew:  opts.addMissing,
 			Exclude: cfg.Exclude,
 		})
 		if err != nil {
@@ -176,8 +196,8 @@ func execute(opts *options) error {
 
 func detectConfigPath() string {
 	candidates := []string{
-		"tools/values-sync/values-sync.yaml",   // from repo root
-		"values-sync.yaml",                     // from tools/values-sync dir
+		"tools/values-sync/values-sync.yaml", // from repo root
+		"values-sync.yaml",                   // from tools/values-sync dir
 		"../tools/values-sync/values-sync.yaml",
 	}
 	for _, c := range candidates {
@@ -295,5 +315,51 @@ func renderTreeNode(node *treeNode, indent, prefix string, depth, maxDepth int) 
 		if len(child.order) > 0 && !truncated {
 			renderTreeNode(child, indent, childPrefix, depth+1, maxDepth)
 		}
+	}
+}
+
+func executeShowDiff(chartDir string, deps []string, exclude []string, doc *yaml.Node, opts *options) error {
+	rep := diffReport{ChartDir: chartDir}
+	for _, dep := range deps {
+		upstreamPath := filepath.Join(chartDir, "charts", dep, "values.yaml")
+		if _, err := os.Stat(upstreamPath); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Warning: upstream values not found at %s, skipping %s\n", upstreamPath, dep)
+			continue
+		}
+
+		res, err := values.ShowDiff(doc, dep, upstreamPath, exclude)
+		if err != nil {
+			return fmt.Errorf("computing diff for %s: %w", dep, err)
+		}
+
+		rep.Results = append(rep.Results, diffResult{
+			Subchart:  res.Subchart,
+			NewInDiff: res.NewInDiff,
+		})
+	}
+
+	switch opts.output {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(rep); err != nil {
+			return fmt.Errorf("encoding JSON report: %w", err)
+		}
+	default:
+		printDiffReport(rep, opts)
+	}
+	return nil
+}
+
+func printDiffReport(rep diffReport, opts *options) {
+	fmt.Printf("DIFF REPORT: %s\n", rep.ChartDir)
+	for _, r := range rep.Results {
+		if len(r.NewInDiff) == 0 {
+			fmt.Printf("  [%s] no new upstream keys in this branch\n", r.Subchart)
+			continue
+		}
+		fmt.Printf("  [%s] +%d introduced in this branch\n", r.Subchart, len(r.NewInDiff))
+		fmt.Printf("    would add:\n")
+		printPaths(r.NewInDiff, r.Subchart, "      ", opts.format, opts.depth)
 	}
 }
