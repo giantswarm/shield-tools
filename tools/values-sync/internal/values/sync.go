@@ -16,7 +16,7 @@ import (
 type SyncResult struct {
 	Subchart     string
 	Removed      []string
-	New          []string   // populated when AddNew is set
+	New          []string    // populated when AddNew is set
 	removedLines []lineRange // line ranges deleted from the source file
 }
 
@@ -66,27 +66,26 @@ func SyncSubchart(ourDoc *yaml.Node, name string, upstreamPath string, opts Sync
 		return result, nil
 	}
 
-	// Collect paths.
-	ourPaths := pathSet(flattenPaths(ourMapping, ""))
-	upstreamPaths := pathSet(flattenPaths(upstreamMapping, ""))
-
-	// Removed: in ours but not upstream, and not excluded.
-	// We skip paths that are a prefix of an upstream path: an empty mapping
-	// left behind after pruning (e.g. monitoring: {}) would otherwise be
-	// reported as removed on every subsequent run because its leaf path
-	// ("monitoring") doesn't appear in upstream's deeper leaf paths
-	// ("monitoring.someKey").
-	for p := range ourPaths {
-		if !upstreamPaths[p] && !isPrefixOfAny(p, upstreamPaths) {
-			fullPath := name + "." + p
-			if !config.MatchesAny(fullPath, opts.Exclude) {
-				result.Removed = append(result.Removed, fullPath)
-			}
+	// Removed: our direct-child keys that are absent from upstream.
+	// We only compare at the top level of the subchart mapping — children of
+	// existing upstream keys are our intentional customisations (e.g. labels)
+	// and must not be deleted.
+	upstreamTopKeys := make(map[string]bool)
+	for i := 0; i+1 < len(upstreamMapping.Content); i += 2 {
+		upstreamTopKeys[upstreamMapping.Content[i].Value] = true
+	}
+	for i := 0; i+1 < len(ourMapping.Content); i += 2 {
+		key := ourMapping.Content[i].Value
+		fullPath := name + "." + key
+		if !upstreamTopKeys[key] && !config.MatchesAny(fullPath, opts.Exclude) {
+			result.Removed = append(result.Removed, fullPath)
 		}
 	}
 
-	// New: upstream keys we don't have. Only populated when --add-new is set.
+	// New: upstream keys we don't have. Only populated when --add-missing is set.
 	if opts.AddNew {
+		ourPaths := pathSet(flattenPaths(ourMapping, ""))
+		upstreamPaths := pathSet(flattenPaths(upstreamMapping, ""))
 		for p := range upstreamPaths {
 			if !ourPaths[p] && !isPrefixOfAny(p, ourPaths) {
 				result.New = append(result.New, name+"."+p)
@@ -123,7 +122,7 @@ func ensureCommentSpacing(s string) string {
 }
 
 // WriteValues marshals the full YAML document back to the file.
-// Used when new keys are added (--add-new), since inserted nodes have no
+// Used when new keys are added (--add-missing), since inserted nodes have no
 // original line information to preserve.
 func WriteValues(path string, doc *yaml.Node) error {
 	var buf bytes.Buffer
@@ -342,7 +341,7 @@ func pruneNode(ourNode, upstreamNode *yaml.Node, currentPath string, excludes []
 		keyNode := ourNode.Content[i]
 		valNode := ourNode.Content[i+1]
 		fullPath := currentPath + "." + keyNode.Value
-		upVal, exists := upstreamKeys[keyNode.Value]
+		_, exists := upstreamKeys[keyNode.Value]
 		if !exists {
 			if config.MatchesAny(fullPath, excludes) {
 				kept = append(kept, keyNode, valNode)
@@ -359,9 +358,9 @@ func pruneNode(ourNode, upstreamNode *yaml.Node, currentPath string, excludes []
 			}
 			continue
 		}
-		if valNode.Kind == yaml.MappingNode && upVal != nil && upVal.Kind == yaml.MappingNode {
-			removals = append(removals, pruneNode(valNode, upVal, fullPath, excludes)...)
-		}
+		// Key exists in upstream — keep our version with all customisations.
+		// Our additions to existing upstream mappings (e.g. labels, annotations)
+		// are intentional and must not be pruned.
 		kept = append(kept, keyNode, valNode)
 	}
 	ourNode.Content = kept
