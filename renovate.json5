@@ -6,17 +6,6 @@
   ],
   "packageRules": [
     {
-      "description": "Automerge architect updates",
-      "matchFileNames": [
-        ".circleci/config.yml"
-      ],
-      "matchDepNames": [
-        "architect"
-      ],
-      "groupName": "Architect",
-      "automerge": true
-    },
-    {
       "description": "Group all updates to generated workflow files into one PR",
       "matchFileNames": [
         ".github/workflows/zz_generated.**"
