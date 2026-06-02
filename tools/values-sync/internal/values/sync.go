@@ -346,12 +346,13 @@ func pruneNode(ourNode, upstreamNode *yaml.Node, currentPath string, excludes []
 			if config.MatchesAny(fullPath, excludes) {
 				kept = append(kept, keyNode, valNode)
 			} else if valNode.Kind == yaml.MappingNode {
+				lastLine := nodeLastLine(valNode) // save before pruneOrphanNode clears Content
 				orphanRemovals := pruneOrphanNode(valNode, fullPath, excludes)
 				if valNode.Content != nil { // pruneOrphanNode kept something
 					kept = append(kept, keyNode, valNode)
 					removals = append(removals, orphanRemovals...)
 				} else {
-					removals = append(removals, nodeLineRange(keyNode, valNode))
+					removals = append(removals, lineRange{first: keyNode.Line, last: lastLine})
 				}
 			} else {
 				removals = append(removals, nodeLineRange(keyNode, valNode))
@@ -387,12 +388,13 @@ func pruneOrphanNode(node *yaml.Node, currentPath string, excludes []string) []l
 		if config.MatchesAny(fullPath, excludes) {
 			kept = append(kept, keyNode, valNode)
 		} else if valNode.Kind == yaml.MappingNode {
+			lastLine := nodeLastLine(valNode) // save before recursive call clears Content
 			childRemovals := pruneOrphanNode(valNode, fullPath, excludes)
 			if valNode.Content != nil {
 				kept = append(kept, keyNode, valNode)
 				removals = append(removals, childRemovals...)
 			} else {
-				removals = append(removals, nodeLineRange(keyNode, valNode))
+				removals = append(removals, lineRange{first: keyNode.Line, last: lastLine})
 			}
 		} else {
 			removals = append(removals, nodeLineRange(keyNode, valNode))

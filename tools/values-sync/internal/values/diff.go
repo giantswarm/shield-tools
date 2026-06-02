@@ -12,15 +12,17 @@ import (
 	"github.com/giantswarm/shield-tools/tools/values-sync/internal/config"
 )
 
-// DiffResult holds keys newly introduced in the upstream values.yaml git diff.
+// DiffResult holds keys that changed in the upstream values.yaml git diff.
 type DiffResult struct {
-	Subchart  string
-	NewInDiff []string // upstream keys new in this git diff, not yet in our values
+	Subchart      string
+	NewInDiff     []string // upstream keys new in this git diff, not yet in our values
+	RemovedInDiff []string // upstream keys removed in this git diff that we still carry
 }
 
-// ShowDiff computes which keys were newly introduced in the upstream values.yaml
-// (compared to HEAD) that are not yet in our values.yaml.
-func ShowDiff(ourDoc *yaml.Node, name string, upstreamPath string, exclude []string) (DiffResult, error) {
+// ShowDiff computes which keys changed in the upstream values.yaml (compared to
+// the given base ref): keys newly introduced that are not yet in our
+// values.yaml, and keys removed upstream that we still carry.
+func ShowDiff(ourDoc *yaml.Node, name string, upstreamPath string, exclude []string, base string) (DiffResult, error) {
 	result := DiffResult{Subchart: name}
 
 	absUpstreamPath, err := filepath.Abs(upstreamPath)
@@ -38,9 +40,9 @@ func ShowDiff(ourDoc *yaml.Node, name string, upstreamPath string, exclude []str
 		return result, fmt.Errorf("computing relative path: %w", err)
 	}
 
-	// Get old upstream values from main. If the file doesn't exist there yet,
-	// treat old as empty.
-	oldData, err := gitShow(gitRoot, "main:"+relPath)
+	// Get old upstream values from the base ref. If the file doesn't exist
+	// there yet, treat old as empty.
+	oldData, err := gitShow(gitRoot, base+":"+relPath)
 	if err != nil {
 		oldData = []byte{}
 	}
@@ -67,23 +69,22 @@ func ShowDiff(ourDoc *yaml.Node, name string, upstreamPath string, exclude []str
 		oldMapping = oldDoc.Content[0]
 	}
 
+	ourMapping, _ := findMappingNode(ourDoc, name)
+
+	result.NewInDiff, result.RemovedInDiff = diffPaths(ourMapping, oldMapping, newMapping, name, exclude)
+
+	return result, nil
+}
+
+// diffPaths computes, for one subchart, which leaf paths were newly introduced
+// upstream (present in new, absent in old) and which were removed upstream
+// (present in old, absent in new). New keys are restricted to those we don't
+// yet carry; removed keys to those we still carry. Both lists are filtered by
+// the exclude patterns and returned prefixed with the subchart name.
+func diffPaths(ourMapping, oldMapping, newMapping *yaml.Node, name string, exclude []string) (newInDiff, removedInDiff []string) {
 	newUpstreamPaths := pathSet(flattenPaths(newMapping, ""))
 	oldUpstreamPaths := pathSet(flattenPaths(oldMapping, ""))
 
-	// Keys introduced in the new upstream version.
-	newInDiff := make(map[string]bool)
-	for p := range newUpstreamPaths {
-		if !oldUpstreamPaths[p] {
-			newInDiff[p] = true
-		}
-	}
-
-	if len(newInDiff) == 0 {
-		return result, nil
-	}
-
-	// Filter to keys not already present in our values.yaml.
-	ourMapping, _ := findMappingNode(ourDoc, name)
 	var ourPaths map[string]bool
 	if ourMapping != nil {
 		ourPaths = pathSet(flattenPaths(ourMapping, ""))
@@ -91,14 +92,29 @@ func ShowDiff(ourDoc *yaml.Node, name string, upstreamPath string, exclude []str
 		ourPaths = make(map[string]bool)
 	}
 
-	for p := range newInDiff {
+	// Keys introduced upstream that we don't have yet.
+	for p := range newUpstreamPaths {
+		if oldUpstreamPaths[p] {
+			continue
+		}
 		if !config.MatchesAny(name+"."+p, exclude) && !ourPaths[p] && !isPrefixOfAny(p, ourPaths) {
-			result.NewInDiff = append(result.NewInDiff, name+"."+p)
+			newInDiff = append(newInDiff, name+"."+p)
 		}
 	}
-	sort.Strings(result.NewInDiff)
+	sort.Strings(newInDiff)
 
-	return result, nil
+	// Keys removed upstream that we still carry.
+	for p := range oldUpstreamPaths {
+		if newUpstreamPaths[p] {
+			continue
+		}
+		if !config.MatchesAny(name+"."+p, exclude) && (ourPaths[p] || isPrefixOfAny(p, ourPaths)) {
+			removedInDiff = append(removedInDiff, name+"."+p)
+		}
+	}
+	sort.Strings(removedInDiff)
+
+	return newInDiff, removedInDiff
 }
 
 func gitRevParseTopLevel(fromPath string) (string, error) {
