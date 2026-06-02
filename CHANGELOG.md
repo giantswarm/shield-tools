@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.5] - 2026-06-02
 
+### Changed
+
+- Modified the `show-git-diff` output to display any modified values, not just additions.
+
 ## [0.0.4] - 2026-03-20
 
 ### Added
