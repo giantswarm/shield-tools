@@ -25,6 +25,7 @@ type options struct {
 	output     string
 	depth      int
 	format     string
+	diffBase   string
 }
 
 // report is the JSON-serialisable sync report.
@@ -46,8 +47,9 @@ type diffReport struct {
 }
 
 type diffResult struct {
-	Subchart  string   `json:"subchart"`
-	NewInDiff []string `json:"newInDiff"`
+	Subchart      string   `json:"subchart"`
+	NewInDiff     []string `json:"newInDiff"`
+	RemovedInDiff []string `json:"removedInDiff"`
 }
 
 func main() {
@@ -76,6 +78,7 @@ func run() error {
 	cmd.Flags().StringVar(&opts.output, "output", "text", "Output format: text or json")
 	cmd.Flags().IntVar(&opts.depth, "depth", 0, "Max depth for tree output (0 = unlimited)")
 	cmd.Flags().StringVar(&opts.format, "format", "tree", "Output format for changed keys: tree or paths")
+	cmd.Flags().StringVar(&opts.diffBase, "diff-base", "main", "Git ref to diff upstream values against for --show-git-diff")
 
 	return cmd.Execute()
 }
@@ -177,6 +180,10 @@ func execute(opts *options) error {
 				return fmt.Errorf("writing updated values.yaml: %w", err)
 			}
 		}
+	}
+
+	if opts.dryRun {
+		fmt.Fprintln(os.Stderr, "⚠️  DRY RUN — no files modified.")
 	}
 
 	// Print report.
@@ -327,14 +334,15 @@ func executeShowDiff(chartDir string, deps []string, exclude []string, doc *yaml
 			continue
 		}
 
-		res, err := values.ShowDiff(doc, dep, upstreamPath, exclude)
+		res, err := values.ShowDiff(doc, dep, upstreamPath, exclude, opts.diffBase)
 		if err != nil {
 			return fmt.Errorf("computing diff for %s: %w", dep, err)
 		}
 
 		rep.Results = append(rep.Results, diffResult{
-			Subchart:  res.Subchart,
-			NewInDiff: res.NewInDiff,
+			Subchart:      res.Subchart,
+			NewInDiff:     res.NewInDiff,
+			RemovedInDiff: res.RemovedInDiff,
 		})
 	}
 
@@ -354,12 +362,27 @@ func executeShowDiff(chartDir string, deps []string, exclude []string, doc *yaml
 func printDiffReport(rep diffReport, opts *options) {
 	fmt.Printf("DIFF REPORT: %s\n", rep.ChartDir)
 	for _, r := range rep.Results {
-		if len(r.NewInDiff) == 0 {
-			fmt.Printf("  [%s] no new upstream keys in this branch\n", r.Subchart)
+		if len(r.NewInDiff) == 0 && len(r.RemovedInDiff) == 0 {
+			fmt.Printf("  [%s] no upstream changes in this branch\n", r.Subchart)
 			continue
 		}
-		fmt.Printf("  [%s] +%d introduced in this branch\n", r.Subchart, len(r.NewInDiff))
-		fmt.Printf("    would add:\n")
-		printPaths(r.NewInDiff, r.Subchart, "      ", opts.format, opts.depth)
+
+		parts := []string{}
+		if n := len(r.RemovedInDiff); n > 0 {
+			parts = append(parts, fmt.Sprintf("-%d", n))
+		}
+		if n := len(r.NewInDiff); n > 0 {
+			parts = append(parts, fmt.Sprintf("+%d", n))
+		}
+		fmt.Printf("  [%s] %s\n", r.Subchart, strings.Join(parts, "  "))
+
+		if len(r.RemovedInDiff) > 0 {
+			fmt.Printf("    upstream removes:\n")
+			printPaths(r.RemovedInDiff, r.Subchart, "      ", opts.format, opts.depth)
+		}
+		if len(r.NewInDiff) > 0 {
+			fmt.Printf("    upstream introduces:\n")
+			printPaths(r.NewInDiff, r.Subchart, "      ", opts.format, opts.depth)
+		}
 	}
 }
