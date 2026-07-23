@@ -11,9 +11,12 @@ import (
 )
 
 type options struct {
-	chartDir   string
-	valuesPath string
-	outputPath string
+	chartDir     string
+	configPath   string
+	valuesPath   string
+	outputPath   string
+	fixNullTypes bool
+	ruleSet      string
 }
 
 func main() {
@@ -35,33 +38,35 @@ func run() error {
 	}
 
 	cmd.Flags().StringVar(&opts.chartDir, "chart-dir", "", "Path to the Helm chart directory (auto-detected from helm/*/)")
-	cmd.Flags().StringVar(&opts.valuesPath, "values", "", "Path to values.yaml (overrides --chart-dir)")
-	cmd.Flags().StringVar(&opts.outputPath, "output", "", "Path to write values.schema.json (defaults to values.schema.json next to values.yaml)")
+	cmd.Flags().StringVar(&opts.configPath, "config", "", "Path to the helm-values-schema-json config (defaults to <chart-dir>/.schema.yaml; Giant Swarm defaults are used if absent)")
+	cmd.Flags().StringVar(&opts.valuesPath, "values", "", "Path to values.yaml (overrides the config's values)")
+	cmd.Flags().StringVar(&opts.outputPath, "output", "", "Path to write values.schema.json (overrides the config's output)")
+	cmd.Flags().BoolVar(&opts.fixNullTypes, "fix-null-types", false, "Widen inferred \"null\" types to [\"<type>\",\"null\"] instead of leaving them for `# @schema` annotations")
+	cmd.Flags().StringVar(&opts.ruleSet, "rule-set", "", "schemalint rule set to verify against (e.g. cluster-app)")
 
 	return cmd.Execute()
 }
 
 func execute(opts *options) error {
-	valuesPath := opts.valuesPath
-	if valuesPath == "" {
-		chartDir := opts.chartDir
-		if chartDir == "" {
-			detected, err := detectChartDir()
-			if err != nil {
-				return fmt.Errorf("detecting chart directory: %w", err)
-			}
-			chartDir = detected
-			fmt.Fprintf(os.Stderr, "Auto-detected chart directory: %s\n", chartDir)
+	chartDir := opts.chartDir
+	if chartDir == "" && opts.valuesPath == "" {
+		detected, err := detectChartDir()
+		if err != nil {
+			return fmt.Errorf("detecting chart directory: %w", err)
 		}
-		valuesPath = filepath.Join(chartDir, "values.yaml")
+		chartDir = detected
+		fmt.Fprintf(os.Stderr, "Auto-detected chart directory: %s\n", chartDir)
 	}
 
-	outputPath := opts.outputPath
-	if outputPath == "" {
-		outputPath = filepath.Join(filepath.Dir(valuesPath), "values.schema.json")
-	}
-
-	if err := schema.Regenerate(valuesPath, outputPath); err != nil {
+	outputPath, err := schema.Regenerate(schema.Options{
+		ChartDir:     chartDir,
+		ConfigPath:   opts.configPath,
+		ValuesPath:   opts.valuesPath,
+		OutputPath:   opts.outputPath,
+		FixNullTypes: opts.fixNullTypes,
+		RuleSet:      opts.ruleSet,
+	})
+	if err != nil {
 		return err
 	}
 
