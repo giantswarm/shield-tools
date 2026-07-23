@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.6] - 2026-07-23
 
+### Changed
+
+- Use `schemalint` for schema generation.
+
 ## [0.0.5] - 2026-06-02
 
 ### Changed
