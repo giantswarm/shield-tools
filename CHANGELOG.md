@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `schema-gen`: `--normalize` flag to skip the `schemalint` normalize and verify
+  steps. On by default, matching the format charts commit.
+
+### Fixed
+
+- `schema-gen`: replace `additionalProperties: false` with
+  `unevaluatedProperties: false` on objects that also carry a `$ref`. The
+  generator's output otherwise rejects every value defined by the referenced
+  schema.
+
 ## [0.0.6] - 2026-07-23
 
 ### Changed
