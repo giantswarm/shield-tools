@@ -16,6 +16,7 @@ type options struct {
 	valuesPath   string
 	outputPath   string
 	fixNullTypes bool
+	normalize    bool
 	ruleSet      string
 }
 
@@ -42,7 +43,8 @@ func run() error {
 	cmd.Flags().StringVar(&opts.valuesPath, "values", "", "Path to values.yaml (overrides the config's values)")
 	cmd.Flags().StringVar(&opts.outputPath, "output", "", "Path to write values.schema.json (overrides the config's output)")
 	cmd.Flags().BoolVar(&opts.fixNullTypes, "fix-null-types", false, "Widen inferred \"null\" types to [\"<type>\",\"null\"] instead of leaving them for `# @schema` annotations")
-	cmd.Flags().StringVar(&opts.ruleSet, "rule-set", "", "schemalint rule set to verify against (e.g. cluster-app)")
+	cmd.Flags().BoolVar(&opts.normalize, "normalize", true, "Run schemalint normalize + verify after generation; the normalized form is what charts commit (--normalize=false leaves non-canonical key ordering)")
+	cmd.Flags().StringVar(&opts.ruleSet, "rule-set", "", "schemalint rule set to verify against during normalization (e.g. cluster-app)")
 
 	return cmd.Execute()
 }
@@ -64,6 +66,7 @@ func execute(opts *options) error {
 		ValuesPath:   opts.valuesPath,
 		OutputPath:   opts.outputPath,
 		FixNullTypes: opts.fixNullTypes,
+		Normalize:    opts.normalize,
 		RuleSet:      opts.ruleSet,
 	})
 	if err != nil {

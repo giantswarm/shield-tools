@@ -39,21 +39,32 @@ type Options struct {
 	// OutputPath overrides the output schema file. When empty the value comes
 	// from the config file, or defaults to <ChartDir>/values.schema.json.
 	OutputPath string
-	// FixNullTypes, when true, widens inferred "null" types to ["<type>","null"]
-	// before normalization. Off by default: the Giant Swarm workflow leaves
-	// "type": "null" for the author to fix via `# @schema` annotations.
+	// FixNullTypes, when true, widens inferred "null" types to ["<type>","null"].
+	// Off by default: the Giant Swarm workflow leaves "type": "null" for the
+	// author to fix via `# @schema` annotations.
 	FixNullTypes bool
+	// Normalize, when true, runs schemalint normalize (and verify) after
+	// generation. The CLI defaults it to true: schemalint's normalized form is
+	// the resting format of the Giant Swarm pre-commit chain, so it is what
+	// charts commit. Turning it off is a debug escape hatch, not a way to get
+	// raw generator output — the $ref fix re-encodes the document and so drops
+	// the generator's key ordering either way.
+	Normalize bool
 	// RuleSet, when non-empty, runs the schemalint rule-set check during
-	// verification (e.g. "cluster-app").
+	// verification (requires Normalize). E.g. "cluster-app".
 	RuleSet string
 }
 
 // Regenerate generates values.schema.json the same way the Giant Swarm
-// pre-commit hooks do:
-//  1. helm-values-schema-json (losisin) generates the schema from values.yaml,
-//     driven by the chart's .schema.yaml config (or Giant Swarm defaults).
-//  2. schemalint normalize rewrites it with canonical key ordering and indent.
-//  3. schemalint verify validates it (and fails on error).
+// pre-commit chain does: it runs helm-values-schema-json (losisin) against the
+// chart's .schema.yaml config (or Giant Swarm defaults), applies the $ref
+// sibling fix, then — with Options.Normalize — normalizes and verifies the
+// result with schemalint.
+//
+// Step order matters and mirrors devctl's `helm-schema-<chart>` pre-commit hook,
+// which runs all three inside a single hook so that schemalint normalize is
+// always the last writer. That makes the normalized file a fixed point, which is
+// why charts commit the normalized form.
 //
 // It returns the absolute path of the written schema.
 func Regenerate(opts Options) (string, error) {
@@ -72,12 +83,17 @@ func Regenerate(opts Options) (string, error) {
 		}
 	}
 
-	if err := normalizeFile(cfg.Output); err != nil {
-		return "", fmt.Errorf("normalizing schema: %w", err)
+	if err := fixRefSiblings(cfg.Output); err != nil {
+		return "", fmt.Errorf("fixing $ref siblings: %w", err)
 	}
 
-	if err := verifySchema(cfg.Output, opts.RuleSet); err != nil {
-		return "", err
+	if opts.Normalize {
+		if err := normalizeFile(cfg.Output); err != nil {
+			return "", fmt.Errorf("normalizing schema: %w", err)
+		}
+		if err := verifySchema(cfg.Output, opts.RuleSet); err != nil {
+			return "", err
+		}
 	}
 
 	return cfg.Output, nil
@@ -234,6 +250,63 @@ func verifySchema(path, ruleSet string) error {
 		return fmt.Errorf("schema verification failed:\n  - %s", strings.Join(msgs, "\n  - "))
 	}
 	return nil
+}
+
+// fixRefSiblings works around a generator bug: with noAdditionalProperties: true
+// it emits "additionalProperties": false as a sibling of every bare "$ref". Per
+// JSON Schema 2020-12, additionalProperties only sees sibling properties and
+// patternProperties — NOT properties pulled in through $ref — so it wrongly
+// rejects every field the referenced schema defines (e.g. `helm template` fails
+// with "additional properties 'podAntiAffinity' not allowed" for a k8s
+// Affinity). The correct 2020-12 keyword is unevaluatedProperties, which does
+// consider $ref-evaluated properties, but the generator cannot emit it and does
+// not drop the bogus additionalProperties when annotated.
+//
+// So for every object carrying both, drop additionalProperties and set
+// unevaluatedProperties: false. This is unconditional: without it the schema
+// rejects valid values, so it is a correctness fix rather than a formatting
+// preference. It mirrors the $ref step in devctl's pre-commit hook.
+//
+// Upstream bug: https://github.com/losisin/helm-values-schema-json/issues/317
+func fixRefSiblings(schemaPath string) error {
+	data, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return err
+	}
+
+	var doc any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return err
+	}
+	fixRefNode(doc)
+
+	out, err := json.MarshalIndent(doc, "", "    ")
+	if err != nil {
+		return err
+	}
+	out = append(out, '\n')
+	return os.WriteFile(schemaPath, out, 0o644)
+}
+
+// fixRefNode walks the decoded schema, rewriting $ref siblings in place.
+func fixRefNode(node any) {
+	switch n := node.(type) {
+	case map[string]any:
+		for _, v := range n {
+			fixRefNode(v)
+		}
+		if _, hasRef := n["$ref"]; !hasRef {
+			return
+		}
+		if ap, ok := n["additionalProperties"].(bool); ok && !ap {
+			delete(n, "additionalProperties")
+			n["unevaluatedProperties"] = false
+		}
+	case []any:
+		for _, v := range n {
+			fixRefNode(v)
+		}
+	}
 }
 
 // fixNullTypes widens types the generator infers as "null" (from null/empty
