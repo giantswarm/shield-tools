@@ -16,8 +16,11 @@ The steps are:
 1. Generate the schema from `values.yaml` with
    [`helm-values-schema-json`](https://github.com/losisin/helm-values-schema-json),
    driven by the chart's `.schema.yaml` or, when absent, Giant Swarm defaults that
-   mirror devctl's template (draft 2020-12, indent 4, `additionalProperties: false`,
-   bundling, Kubernetes schema refs pinned to `v1.33.1`, helm-docs annotations).
+   mirror devctl's template (draft 2020-12, indent 4, bundling, Kubernetes schema
+   refs pinned to `v1.33.1`, helm-docs annotations) — except that additional
+   properties stay allowed: a chart without a `.schema.yaml` has not opted into a
+   closed schema, so no `additionalProperties: false` is emitted. Charts that want
+   one set `noAdditionalProperties: true` in their own `.schema.yaml`.
 2. Fix `$ref` siblings: for every object carrying both `$ref` and
    `additionalProperties: false`, drop `additionalProperties` and set
    `unevaluatedProperties: false`. The generator emits the former, but in draft

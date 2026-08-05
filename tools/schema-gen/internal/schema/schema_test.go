@@ -78,9 +78,10 @@ func TestRegenerate_GiantSwarmDefaults(t *testing.T) {
 
 	doc := readSchema(t, out)
 
-	// noAdditionalProperties + schemaRoot.additionalProperties: false.
-	if doc["additionalProperties"] != false {
-		t.Errorf("root additionalProperties = %v, want false", doc["additionalProperties"])
+	// Without a .schema.yaml the schema stays open: no "additionalProperties"
+	// keyword is emitted at all.
+	if ap, present := doc["additionalProperties"]; present {
+		t.Errorf("root additionalProperties = %v, want absent (open by default)", ap)
 	}
 
 	p := props(t, doc)
@@ -88,8 +89,8 @@ func TestRegenerate_GiantSwarmDefaults(t *testing.T) {
 		t.Errorf("replicaCount type = %v, want integer", p["replicaCount"])
 	}
 
-	// `# @schema additionalProperties: string` overrides the global false with a
-	// schema allowing arbitrary string values.
+	// `# @schema additionalProperties: {type: string}` still constrains additional
+	// values to strings.
 	ann, ok := p["annotations"].(map[string]any)
 	if !ok {
 		t.Fatalf("annotations missing: %v", p["annotations"])
@@ -129,12 +130,12 @@ func TestRegenerate_FixNullTypes(t *testing.T) {
 }
 
 func TestRegenerate_ConfigFileHonored(t *testing.T) {
-	// A .schema.yaml disabling noAdditionalProperties must be honored: the root
-	// then has no "additionalProperties": false (unlike the Giant Swarm default).
+	// A .schema.yaml enabling noAdditionalProperties must be honored: the root then
+	// carries "additionalProperties": false (unlike the open Giant Swarm default).
 	schemaYaml := "" +
 		"draft: 2020\n" +
 		"indent: 4\n" +
-		"noAdditionalProperties: false\n"
+		"noAdditionalProperties: true\n"
 	dir := writeChart(t, schemaYaml)
 
 	out, err := Regenerate(Options{ChartDir: dir})
@@ -143,8 +144,8 @@ func TestRegenerate_ConfigFileHonored(t *testing.T) {
 	}
 
 	doc := readSchema(t, out)
-	if _, present := doc["additionalProperties"]; present {
-		t.Errorf("root additionalProperties present (%v); config's noAdditionalProperties: false was not honored", doc["additionalProperties"])
+	if doc["additionalProperties"] != false {
+		t.Errorf("root additionalProperties = %v; config's noAdditionalProperties: true was not honored", doc["additionalProperties"])
 	}
 }
 
@@ -189,10 +190,21 @@ func TestRegenerate_NormalizeOption(t *testing.T) {
 }
 
 func TestRegenerate_RefSiblingFix(t *testing.T) {
-	// The generator emits "additionalProperties": false alongside a bare $ref,
-	// which in draft 2020-12 rejects every property the referenced schema
-	// defines. It must be replaced by "unevaluatedProperties": false.
+	// With noAdditionalProperties the generator emits "additionalProperties": false
+	// alongside a bare $ref, which in draft 2020-12 rejects every property the
+	// referenced schema defines. It must be replaced by
+	// "unevaluatedProperties": false.
 	dir := t.TempDir()
+
+	schemaYaml := "" +
+		"draft: 2020\n" +
+		"indent: 4\n" +
+		"noAdditionalProperties: true\n" +
+		"bundle: true\n" +
+		"bundleWithoutID: true\n"
+	if err := os.WriteFile(filepath.Join(dir, ".schema.yaml"), []byte(schemaYaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	ref := `{"$schema":"https://json-schema.org/draft/2020-12/schema",` +
 		`"type":"object","properties":{"foo":{"type":"string"}}}`
