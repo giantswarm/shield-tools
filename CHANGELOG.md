@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-08-05
+
 ### Changed
 
 - `schema-gen`: charts without a `.schema.yaml` now keep additional properties
@@ -68,7 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First release of the shield-tools repo.
 
-[Unreleased]: https://github.com/giantswarm/shield-tools/compare/v0.0.7...HEAD
+[Unreleased]: https://github.com/giantswarm/shield-tools/compare/v0.0.8...HEAD
+[0.0.8]: https://github.com/giantswarm/shield-tools/compare/v0.0.7...v0.0.8
 [0.0.7]: https://github.com/giantswarm/shield-tools/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/giantswarm/shield-tools/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/giantswarm/shield-tools/compare/v0.0.4...v0.0.5
