@@ -180,8 +180,9 @@ func readConfigFile(path string) ([]byte, error) {
 }
 
 // gsDefaultConfig returns the Giant Swarm default generator config, matching
-// devctl's .schema.yaml template. Values/Output are left empty and filled in by
-// loadConfig from the chart directory.
+// devctl's .schema.yaml template except that additional properties stay allowed
+// (see below). Values/Output are left empty and filled in by loadConfig from the
+// chart directory.
 func gsDefaultConfig() genpkg.Config {
 	cfg := genpkg.DefaultConfig
 	// Clear the generator's built-in defaults so loadConfig derives them from
@@ -190,7 +191,12 @@ func gsDefaultConfig() genpkg.Config {
 	cfg.Output = ""
 	cfg.Draft = 2020
 	cfg.Indent = 4
-	cfg.NoAdditionalProperties = true
+	// Deliberately left permissive (and SchemaRoot.AdditionalProperties unset, so
+	// the keyword is not emitted at all): a chart without a .schema.yaml has not
+	// opted into a closed schema, and closing it would reject values the chart
+	// accepts today. Charts that want it set `noAdditionalProperties: true` in
+	// their own .schema.yaml.
+	cfg.NoAdditionalProperties = false
 	cfg.NoDefaultGlobal = false
 	cfg.Bundle = true
 	cfg.BundleWithoutID = true
@@ -198,8 +204,6 @@ func gsDefaultConfig() genpkg.Config {
 	cfg.K8sSchemaURL = gsK8sSchemaURL
 	cfg.K8sSchemaVersion = gsK8sSchemaVersion
 	cfg.UseHelmDocs = true
-	noAdditional := false
-	cfg.SchemaRoot.AdditionalProperties = &noAdditional
 	return cfg
 }
 

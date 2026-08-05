@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `schema-gen`: charts without a `.schema.yaml` now keep additional properties
+  allowed instead of getting `additionalProperties: false`. Set
+  `noAdditionalProperties: true` in a chart's `.schema.yaml` to close its schema.
+
 ## [0.0.7] - 2026-07-29
 
 ### Added
